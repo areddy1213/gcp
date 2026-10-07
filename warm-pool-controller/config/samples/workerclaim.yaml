@@ -1,0 +1,7 @@
+# Ask for one ready Pod from the "default" pool.
+apiVersion: takehome.replit.com/v1alpha1
+kind: WorkerClaim
+metadata:
+  name: claim-a
+spec:
+  poolName: default

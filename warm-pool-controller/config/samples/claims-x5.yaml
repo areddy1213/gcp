@@ -1,0 +1,37 @@
+# Five claims at once: each gets a different Pod; claims that find no warm
+# Pod wait in Pending and are assigned as the pool refills.
+---
+apiVersion: takehome.replit.com/v1alpha1
+kind: WorkerClaim
+metadata:
+  name: claim-1
+spec:
+  poolName: default
+---
+apiVersion: takehome.replit.com/v1alpha1
+kind: WorkerClaim
+metadata:
+  name: claim-2
+spec:
+  poolName: default
+---
+apiVersion: takehome.replit.com/v1alpha1
+kind: WorkerClaim
+metadata:
+  name: claim-3
+spec:
+  poolName: default
+---
+apiVersion: takehome.replit.com/v1alpha1
+kind: WorkerClaim
+metadata:
+  name: claim-4
+spec:
+  poolName: default
+---
+apiVersion: takehome.replit.com/v1alpha1
+kind: WorkerClaim
+metadata:
+  name: claim-5
+spec:
+  poolName: default

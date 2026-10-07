@@ -1,0 +1,23 @@
+# A pool that keeps three ready, unclaimed nginx Pods warm.
+apiVersion: takehome.replit.com/v1alpha1
+kind: WorkerPool
+metadata:
+  name: default
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 1
+            periodSeconds: 1

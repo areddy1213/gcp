@@ -1,0 +1,6 @@
+## Append samples of your project ##
+resources:
+- workerpool.yaml
+- workerclaim.yaml
+- claims-x5.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
