@@ -62,6 +62,8 @@ docs/
   unseen-prompts.md       7 mock tasks with the traps to watch for
   discussion.md           2-minute answers: prod changes, AI mistakes, TF vs Pulumi, multi-team, Replit
   replit-usecase.md       "Why Replit" + a one-hour cert-checker build with Replit Agent
+warm-pool-controller/     Replit take-home: WorkerPool/WorkerClaim Kubernetes controller (Go, Kubebuilder)
+  docs/review-prep.md     Code-review session notes: verified state, walkthrough, issues, patches, answers
 ```
 
 ## Using `plan-check.sh`
