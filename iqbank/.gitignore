@@ -1,0 +1,17 @@
+# credentials and local config
+.env
+iqbank.toml
+
+# collected data: may contain copyrighted posts; keep it local
+*.db
+*.db-journal
+out/
+inbox/*
+!inbox/README.md
+
+# python
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/

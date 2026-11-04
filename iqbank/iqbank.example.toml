@@ -1,0 +1,44 @@
+# Copy to iqbank.toml to override defaults. Every key is optional.
+# Credentials never go here; they belong in .env.
+
+company = "Glean"
+roles = ["Platform Security Engineer", "Software Engineer"]
+# company_description = "Glean (glean.com), the enterprise AI search company"  # disambiguates the name
+# db_path = "iqbank.db"
+# inbox_dir = "inbox"
+# out_dir = "out"
+
+[llm]
+# model = "claude-sonnet-5-5"
+# effort = "medium"            # low | medium | high
+# fallbacks = true
+# max_chunk_chars = 150000     # longer docs are split into several calls, never truncated
+# dedupe_batch_size = 300
+
+[reddit]
+subreddits = ["cscareerquestions", "leetcode", "ExperiencedDevs", "csMajors"]
+queries = ["{company} interview", "{company} onsite", "{company} phone screen"]
+# post_limit = 25
+# comment_limit = 40
+
+[web]
+queries = [
+  "{company} software engineer interview questions",
+  "{company} security engineer interview",
+  "{company} system design interview",
+]
+# results_per_query = 10
+# Entries match the domain and its subdomains; "name.*" matches any TLD.
+blocklist = ["glassdoor.*", "teamblind.com", "leetcode.com", "1point3acres.com"]
+# extra_blocklist = ["example.com"]   # appended instead of replacing
+
+[github]
+# repo_queries = ["company wise leetcode questions", "leetcode company wise problems"]
+# max_repos = 8
+# max_files_per_repo = 20
+
+[http]
+# min_host_interval = 2.0      # seconds between requests to one host (robots.txt Crawl-delay wins if longer)
+# request_timeout = 20.0
+# max_page_bytes = 3000000
+# skip_ttl_days = 30           # how long robots-disallowed / 404 / irrelevant URLs stay skipped

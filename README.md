@@ -62,6 +62,8 @@ docs/
   unseen-prompts.md       7 mock tasks with the traps to watch for
   discussion.md           2-minute answers: prod changes, AI mistakes, TF vs Pulumi, multi-team, Replit
   replit-usecase.md       "Why Replit" + a one-hour cert-checker build with Replit Agent
+iqbank/                   Python CLI that builds an interview-question bank for a target company
+                          from Reddit, web search, GitHub and hand-saved posts (see iqbank/README.md)
 ```
 
 ## Using `plan-check.sh`
