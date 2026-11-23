@@ -350,7 +350,60 @@ Reported: "explain the output of specific Linux commands" ([Bala](https://bala-k
 - **More books.** Michael Kerrisk, *The Linux Programming Interface* ([Bala](https://bala-krishnan.com/posts/18-meta/)). Robert Love, *Linux Kernel Development*, and *Advanced Linux Programming* ([Prepfully](https://prepfully.com/interview-guides/meta-production-engineer)).
 - **Practice format.** Do mock troubleshooting with a partner who *invents* each command's output and changes the facts mid-way. This mirrors the "moving goalposts" format. One candidate used 10 paid mocks with an ex-Meta PE ([RW Prep to Offer](https://reliabilitywhisperer.substack.com/p/2025-meta-from-prep-to-offer-my-meta)).
 
-## E. Checking these threads yourself
+## E. Worked example: "Uncle Bernie's website is down," as a mock dialogue (`PR`)
+
+The prompt and the root cause (a full disk) are from the [2025 E4 report](https://reliabilitywhisperer.substack.com/p/2025meta-e4-production-engineer-interview). The command outputs and the moving goalposts are invented to match how that candidate described the session. **I** = interviewer, **You** = you.
+
+**1. Clarify before you touch anything.**
+> **I:** Uncle Bernie's website is down. Figure out why.
+> **You:** What does "down" look like: an error page, a timeout, wrong content? Is it everyone? Since when? Did anything change: a deploy, config, traffic?
+> **I:** Customers get a **502**. It started about 20 minutes ago. Bernie says he changed nothing.
+> **You:** A 502 means the proxy answered but its upstream didn't. So nginx is probably alive and the app behind it isn't. I'll check both on the host.
+
+**2. Follow the evidence.**
+> **You:** `systemctl status nginx bernie-app`
+> **I:** nginx is `active (running)`. bernie-app is `failed (Result: exit-code)`.
+> **You:** `journalctl -u bernie-app -n 50 --no-pager`
+> **I:** `OSError: [Errno 28] No space left on device: '/var/lib/bernie/sessions/…'`
+> **You:** ENOSPC. `df -h /`
+> **I:** `/dev/sda1  40G  40G  0  100% /`
+> **You:** `du -xh --max-depth=1 / 2>/dev/null | sort -h | tail -5`, then drill into the largest directory.
+> **I:** `/var` is 38G. Inside it, `/var/log/bernie/app.log` is 30G.
+
+**3. Mitigate safely, then verify.**
+> **You:** That log is still open by the app, so I won't `rm` it. I'll truncate it in place with `: > /var/log/bernie/app.log`. Rotated older logs can be compressed or removed. Then `systemctl restart bernie-app` and check with `curl -sS -o /dev/null -w '%{http_code}\n' http://localhost/`.
+> **I:** You get 200.
+
+**4. Goalpost 1: deleted, but still open.**
+> **I:** Suppose someone had already run `rm` on that log, and `df` still says 100%.
+> **You:** Then the space is still held by an open file descriptor. `lsof +L1` lists deleted-but-open files and which process holds them. Restart or reload that process, or truncate the file through `/proc/<pid>/fd/<n>`.
+
+**5. Goalpost 2: free space, but still ENOSPC.**
+> **I:** Now `df -h` shows 40% used, and the app *still* logs "No space left on device."
+> **You:** Then the filesystem has run out of inodes, not blocks. `df -i /`
+> **I:** `IUse% 100%`.
+> **You:** `find /var/lib/bernie/sessions -xdev -type f | wc -l`
+> **I:** 4.1 million.
+> **You:** Session files are piling up; the cleanup job probably died (`systemctl list-timers`, `crontab -l`). To mitigate, delete old sessions with `find /var/lib/bernie/sessions -type f -mmin +1440 -delete`, which avoids an `rm *` that would overflow the argument list. Then fix the cleanup job.
+
+**6. Goalpost 3: make it never page Bernie again.**
+> **I:** Bernie wants this never to wake him up again.
+> **You:**
+> - (a) `logrotate` with a size cap, compression and a `postrotate` reload, so the app reopens its log.
+> - (b) Alerts on disk **and inode** usage at 80% and 90%, plus a "days until full" prediction from the growth rate.
+> - (c) A separate `/var/log` filesystem, so logs can't take down the app's data.
+> - (d) Store sessions in Redis or the database, with a TTL.
+> - (e) An external synthetic check of the site.
+> - (f) A short postmortem and a runbook entry.
+
+**7. Wrap up in 20 seconds.**
+> **You:** The 502 came from a dead upstream. The app crashed on ENOSPC: first a 30 GB unrotated log, then inode exhaustion from orphaned session files. I mitigated by truncating the log, restarting, and cleaning old sessions, and confirmed 200. The prevention list is above.
+
+**What this demonstrates:** hypothesis-driven steps, explaining why a 502 implicates the upstream, safe mitigation (truncate rather than `rm`), handling each changed fact without restarting your reasoning, and a prevention plan.
+
+---
+
+## F. Checking these threads yourself
 
 - **Reddit** (I couldn't reach it). Search these in your browser:
   - `site:reddit.com meta "production engineer" troubleshooting round`

@@ -30,25 +30,28 @@ The loop varies by level and track; the variations are listed below the table. *
 
 ---
 
-## 2. Changes in 2025–2026 (mostly SWE data; **unconfirmed for PE**)
+## 2. The AI rounds: your recruiter has mentioned one
 
-- **October 2025.** An AI-enabled coding round (60 minutes, CoderPad with an AI assistant) replaced one of the two onsite coding rounds for SWE. Reports said it would roll out to "back-end and ops-focused roles" in 2026. Details are in file 01, section D.
+**Your loop has an AI round,** according to your recruiter (Nov 2026). Prepare with [file 06](06-ai-enabled-coding-round.md) and the timed mock in [`ai-round-practice/`](ai-round-practice/README.md). What's publicly reported, mostly for SWE loops:
+
+- **October 2025.** An AI-enabled coding round (about 60 minutes, CoderPad with an AI chat panel, a multi-file project with tests) replaced one of the two onsite coding rounds. One prep site lists it as "expected but unconfirmed for Production engineers in their SWE coding rounds" ([coditioning](https://www.coditioning.com/blog/13/meta-ai-enabled-coding-interview-guide)).
 - **16 April 2026.** SWE onsites reportedly moved to an "AI-native" loop: two AI-enabled coding rounds, AI-enabled system design, and an "AI-Oriented Behavioral" round. Traditional behavioral "still appears in almost every loop" ([1point3acres 2026 Q4 trends](https://www.1point3acres.com/interview/guides/meta-interview-trend-2026q4) `AG`).
 - **September 2026.** Some phone screens open with a discussion of an AI system the candidate built, followed by AI-assisted coding (same source).
-- **For PE:** that source says Production Engineering uses "a different round mix." I found **no first-hand PE report** of AI-enabled rounds. Treat the AI-round items as a contingency until your recruiter confirms.
+- **For your loop, the open question** is *which* round is AI-enabled and whether the others changed. Ask the questions in section 3.
 
 ---
 
-## 3. Questions to ask your recruiter early (`PR`)
+## 3. Questions to ask your recruiter now (`PR`)
 
 1. Which rounds are in my onsite? How many coding rounds; is there a Systems/Linux round, a design round, a separate networking round?
-2. Is either coding round AI-enabled? If so, can I get the practice CoderPad environment with AI enabled, and which languages can I use?
-3. Is the coding PE-style (file and log processing) or SWE-style (Meta-tagged LeetCode)?
-4. Is there an online Linux quiz for my track?
-5. What level am I being considered for, and can the screen change it?
-6. Does team matching happen before or after the onsite?
-7. Can the screen be split across two days? One 2025 candidate recommends it ([RW Prep to Offer](https://reliabilitywhisperer.substack.com/p/2025-meta-from-prep-to-offer-my-meta)).
-8. Will the behavioral round include questions on how I use AI tools at work?
+2. **Which round is the AI round:** one coding round, both, the phone screen, or system design? Is a traditional no-AI coding round still in the loop?
+3. **Can you send the practice CoderPad with the AI assistant enabled?** Which languages can I use, and which test framework (`unittest`/`pytest`, Maven)?
+4. Is the coding PE-style (file and log processing) or SWE-style (Meta-tagged LeetCode)?
+5. Is there an online Linux quiz for my track?
+6. What level am I being considered for, and can the screen change it?
+7. Does team matching happen before or after the onsite?
+8. Can the screen be split across two days? One 2025 candidate recommends it ([RW Prep to Offer](https://reliabilitywhisperer.substack.com/p/2025-meta-from-prep-to-offer-my-meta)).
+9. Is the behavioral round AI-oriented, with questions on when I use AI tools at work and when I don't? Answer outlines are in [file 06, section 9.3](06-ai-enabled-coding-round.md).
 
 ---
 
@@ -195,7 +198,33 @@ Prepare 6–8 stories. Make sure each signal is covered by at least two of them,
 
 ---
 
-## 7. Checking these threads yourself
+## 7. Worked example: an annotated incident story (`PR`)
+
+This is a **template with made-up details**. Swap in your own incident, keep the shape, and keep the numbers.
+
+**The question:** "Tell me about the worst production incident you were part of. What was your role?"
+
+| Part | What you say (about 2.5 minutes) | Signal it earns |
+|---|---|---|
+| **Situation** (15 s) | "Our checkout API's error rate went from 0.1% to 30% at 7 p.m. on a Friday. It's about $40k an hour of failed orders. I was the secondary on-call." | The scope and the stakes are clear |
+| **Task** (10 s) | "The primary was handling customer comms, so I owned *finding and stopping* the errors." | Ownership |
+| **Actions** (90 s) | "First I checked what had changed: no deploy, but a config push 12 minutes earlier had lowered the DB connection-pool size. I **rolled the config back before I'd proven root cause**, because rolling back was cheap and safe. Errors fell to 2% within 4 minutes, but not to zero. Tracing the remaining 2%, I found one host still holding the old pool and stuck in retry loops. I drained it. I posted updates in the incident channel every 15 minutes, written for non-engineers." | Mitigate before root cause; working from evidence; communication |
+| **Result** (20 s) | "Impact lasted 19 minutes, and we were fully clean by minute 26. I wrote the postmortem, which produced 3 action items; I owned 2 of them." | Measurable outcome |
+| **Learning** (25 s) | "The config push skipped the canary stage that code deploys go through. I got the config system changed to require a canary, and added a client-side retry budget. In the next quarter's game day, the same bad push was stopped automatically at 1%." | Growth; long-term impact; a systemic fix |
+
+**How the scope changes by level:**
+- **E4:** you did the debugging and the fix yourself.
+- **E5:** you coordinated three or more people and drove the cross-team action items.
+- **E6:** you changed a process or system for several teams, such as making config canaries mandatory org-wide.
+
+**Likely follow-ups, and the short answer to have ready:**
+- *"Why roll back before you knew the cause?"* → It was cheap, reversible and fast, and diagnosis could continue afterwards.
+- *"What would you do differently?"* → Page the config owner earlier; I spent 3 minutes confirming something they could have told me in 30 seconds.
+- *"How did you make sure the action items actually got done?"* → Owners and due dates in the tracker, and a review at the weekly ops meeting until they closed.
+
+---
+
+## 8. Checking these threads yourself
 
 - **Reddit** (I couldn't reach it). Search these in your browser:
   - `site:reddit.com meta "production engineer" onsite behavioral`

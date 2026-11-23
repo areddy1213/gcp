@@ -189,6 +189,39 @@
 
 ---
 
+## Worked example: a 3-minute model answer to "What happens when you type www.facebook.com?" (`PR`)
+
+Give the whole path first, briefly. Then let the interviewer choose where to go deep. The **[hooks]** mark the places they usually stop you.
+
+1. **The browser.** It parses the URL, sees HTTPS (and an HSTS entry), and checks its caches: DNS cache, connection pool, and the HTTP cache for an existing response. **[hook: HSTS preload, an existing connection being reused]**
+2. **DNS.** On a cache miss, the OS stub resolver checks `/etc/hosts` according to `nsswitch.conf`, then sends a UDP query to the configured recursive resolver.
+   - The recursive resolver walks root → `.com` → the authoritative servers for `facebook.com`, caching each answer for its TTL.
+   - The authoritative answer is usually a **CNAME to an edge hostname**, then an A/AAAA record chosen for where the resolver is.
+   - **[hooks: TTL trade-offs, EDNS Client Subnet, negative caching, the October 2021 outage]**
+3. **Transport.** The client gets both an AAAA and an A record, and Happy Eyeballs races IPv6 against IPv4.
+   - The TCP three-way handshake goes to the edge POP's virtual IP. If the client already knows the site speaks HTTP/3, it uses **QUIC over UDP 443** instead.
+   - **[hooks: SYN/accept queues, SYN cookies, why QUIC uses UDP]**
+4. **TLS 1.3.**
+   - The ClientHello carries the SNI `www.facebook.com`, a key share, and ALPN offering `h2` or `h3`.
+   - The server returns its certificate chain. The client checks the chain, the SAN and the expiry.
+   - That's one round trip, or zero with session resumption. **[hooks: 0-RTT replay risk, OCSP stapling, mTLS internally]**
+5. **At Meta's edge** (from public write-ups):
+   - Routers spread packets across L4 load balancers using ECMP.
+   - The L4 layer (**Katran**, XDP/eBPF) consistent-hashes each flow to an L7 proxy host (**Proxygen**), which terminates TLS and HTTP.
+   - **[hooks: L4 vs L7, consistent hashing, health checks, draining]**
+6. **Edge to origin.** The proxy serves cacheable content from the POP, or forwards the request over Meta's backbone to a data-center L7 tier, then to the web/app servers and their caches and databases. **[hooks: connection pooling, retries, timeouts, backpressure]**
+7. **The response.** The HTTP response streams back over the same multiplexed connection. The browser parses the HTML, fetches subresources over that connection (often from CDN hostnames), and renders the page. **[hooks: HTTP/2 vs HTTP/3 head-of-line blocking, caching headers]**
+
+**Close by inviting the depth choice:** "I can go deeper on any layer. DNS and the edge load balancing are probably the most interesting parts at Meta's scale."
+
+**Debugging version of the same answer.** If asked "the page won't load, where do you look?", walk the same layers using `curl -v`:
+- `* Could not resolve host` → **DNS**: use `dig`.
+- `* connect to … failed` or a timeout → **TCP**: routing, firewall, or the listener. Use `mtr`, `ss`, `tcpdump`.
+- `SSL certificate problem` → **TLS**: use `openssl s_client`.
+- An HTTP 4xx/5xx → **the application or the proxy**: check the logs.
+
+---
+
 ## Checking these threads yourself
 
 - **Reddit** (I couldn't reach it). Search these in your browser:

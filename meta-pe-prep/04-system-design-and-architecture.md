@@ -187,6 +187,88 @@ Meta publishes no PE design rubric. The table is **my synthesis** (`PR`) of the 
 
 ---
 
+## Worked example: "Design a global software deployment system" (`PR`, using the 45-minute outline)
+
+The prompt is reported in [RW's PE design list](https://reliabilitywhisperer.substack.com/p/production-engineer-system-design), tagged Google and Meta. Everything below is my model answer; the numbers are illustrative.
+
+### 1. Clarify (0–5 minutes)
+- **Scope.**
+  - *In:* rolling out new service versions (container images or binaries) to a fleet.
+  - *Out:* CI and builds; config distribution (same principles, separate system); database schema changes (covered under failure modes).
+- **Scale.**
+  - About **1M hosts**, 20 regions, 10k services.
+  - About **2,000 rollouts a day**.
+  - Average artifact 500 MB.
+- **SLOs.**
+  - A bad release must be **halted automatically before it reaches more than 10% of a service's capacity**.
+  - Rollback completes in under 10 minutes.
+  - The deploy system is **not in the serving path**: if it's down, deploys stop but production keeps running.
+
+### 2. Capacity estimate (5–10 minutes)
+- **Artifact traffic.** A naive global push of 500 MB to 1M hosts is **500 TB**. Use regional artifact caches plus peer-to-peer within a rack, and deduplicate image layers. Most deploys change one layer, so expect real egress roughly 10× smaller.
+- **Control plane.** 1M agents polling every 30 s is about **33k QPS**. Shard by region and serve desired state from cached snapshots.
+- **Health data.** Each rollout reads per-host error, latency and crash metrics. Query a pre-aggregated canary-vs-control view rather than scanning raw metrics.
+
+### 3. The simple design (10–20 minutes)
+```
+build -> sign -> Release API -> Release store (versioned, per-region replicas)
+                      |
+                Orchestrator (one state machine per rollout, leader-elected, persisted)
+                 |            |                      |
+        Health analyzer   Artifact distribution   Freeze / kill switch, audit log
+        (canary vs control) (regional cache + P2P)
+                                   |
+                      Host agent (pulls desired state, verifies the signature, drains,
+                                  swaps atomically, health-checks, reports, keeps N-1 cached)
+```
+- **Rollout policy, the default waves:**
+  1. One canary task, baked for 30 minutes.
+  2. 1% of one region.
+  3. 10% of that region.
+  4. All of that region.
+  5. The remaining regions, in waves of up to 3, **never two failure domains of the same service at once**.
+- **Gates at each wave:** error rate, p99 latency, crash loops, CPU and memory, each **compared with a control group still running the old version**. Teams can add their own business metrics.
+- **On a failed gate:** the orchestrator sets desired state back to N-1. Agents switch to the copy of N-1 they already have cached, so rollback doesn't depend on artifact distribution.
+
+### 4. Failure-mode walk (20–35 minutes)
+
+| Component or event | Failure | How it's detected | Blast radius | Mitigation |
+|---|---|---|---|---|
+| Orchestrator | Crashes mid-rollout | Leader-lease expiry | Rollouts pause | State is persisted per wave; steps are idempotent; a new leader resumes |
+| Release | Bug that only appears under load passes the canary | Gate trips at a later wave | At most one wave, about 10% | Region-sized waves on real traffic; bake time; gates stay active after completion |
+| Health signal | The metrics pipeline is down, so there's no data | Missing-data check | None | **Missing data counts as failure:** pause, don't continue |
+| Artifact distribution | A regional cache is down or slow | Agent fetch errors and latency | Rollouts in that region slow down | Fall back to peers or another region; rollback artifacts are already on the hosts |
+| Host agent | A bad agent release | Agent heartbeat SLO | Potentially the whole fleet | The agent is deployed through a separate, slower path; an out-of-band BMC recovery exists |
+| The deploy system itself | Total outage | External probe | No new deploys | Hosts keep running last-known-good; an audited break-glass manual path |
+| Operator error | Someone pushes to 100% at once | Policy engine | Global, if allowed | Blast-radius limits enforced **server-side**; overriding needs two-person approval. The Oct 2021 lesson: [test the safety tooling too](https://engineering.fb.com/2021/10/05/networking-traffic/outage-details/) |
+| Schema change | Rollback is incompatible with new data | Pre-deploy check | One service | Expand/contract migrations, so versions N and N+1 can both run against the same schema |
+
+### 5. Observability and operations (35–40 minutes)
+- **SLIs for the deploy system:**
+  - Deploy lead time.
+  - Percentage of rollouts halted automatically, and how many halts were false positives.
+  - Time to roll back.
+  - Agent convergence time.
+  - Rollouts stuck longer than X.
+- **Dashboards.** One per rollout, showing each wave, its gate results, and canary vs control.
+- **Alerts.** A halted rollout pages the owning team. Systemic failures (many halts at once, agents not converging) page the deploy team.
+- **Game days.** Inject a deliberately bad release each quarter and confirm it halts within the SLO.
+
+### 6. Overload and degradation (40–45 minutes)
+- **During an incident,** freeze non-critical rollouts automatically. Fixes and rollbacks keep a priority lane.
+- **Rate-limit concurrent rollouts** per region, so the artifact caches and control plane never saturate.
+- **If the health analyzer is degraded,** fall back to slower waves with longer bake times rather than stopping every deploy.
+
+### Answers to the D3 follow-ups
+- **"The canary was healthy, but the bug appeared at 100%."** It was load- or fleet-dependent. Make waves big enough to carry real traffic mixes, compare against a control group rather than absolute thresholds, and keep gates watching after the rollout finishes.
+- **"The rollback failed."** Usually it's data or schema: use expand/contract. Or the artifact wasn't available: keep N-1 cached on every host.
+- **"How do you deploy the deployment system?"**
+  - Version N deploys version N+1, starting with canary orchestrator instances.
+  - The agent ships through a minimal, separately versioned path.
+  - A static, audited break-glass procedure exists in case both are broken.
+
+---
+
 ## Meta primary sources worth skimming
 
 | Topic | Read |

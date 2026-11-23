@@ -142,62 +142,13 @@ Every row is a reported prompt. The follow-ups are the ones an interviewer would
 
 ---
 
-## D. Meta's AI-enabled coding round
+## D. Meta's AI-enabled coding round → see [file 06](06-ai-enabled-coding-round.md)
 
-All sources here are secondary, and they disagree in places; the disagreements are noted.
+Your recruiter mentioned an AI round, so it now has its own file, [`06-ai-enabled-coding-round.md`](06-ai-enabled-coding-round.md), and a timed, runnable mock in [`ai-round-practice/`](ai-round-practice/README.md). In short:
 
-**What the sources agree on**
-- **Start date.** It started in **October 2025**. It replaces one of the two onsite coding rounds.
-- **Length and environment.** 60 minutes, in CoderPad with an AI chat panel.
-  - The layout has three panels: a file explorer, the editor, and the AI chat with the instructions.
-  - There is a **Run Tests** button.
-  - The AI **cannot edit your files**; you write or paste the code yourself.
-  - Sources: [dglearning, Apr 2026](https://dglearning.substack.com/p/inside-metas-new-ai-enabled-coding).
-- **It is a multi-file, existing project.** Prepfully mentions "multiple files, dependencies, and configuration files like requirements.txt."
-  - Sources: [Prepfully AI-assisted guide](https://prepfully.com/interview-guides/meta-ai-assisted-coding-interview), [interviewing.io](https://interviewing.io/blog/how-to-use-ai-in-meta-s-ai-assisted-coding-interview-with-real-prompts-and-examples).
-- **Three task shapes.**
-  1. Build a feature into the existing structure.
-  2. Finish partially implemented code (stubs marked `TODO`).
-  3. Debug a broken implementation that has failing tests.
-  - Sources: Prepfully, dglearning.
-- **Three stages.** One source frames the round as *Understand → Build → Verify and explain*. Non-coding questions are mixed in, such as why you'd change a function signature, the runtime, or swapping a data structure.
-  - Sources: [intervue.io, Nov 2026](https://www.intervue.io/blog/meta-interview-experience).
-
-**Models offered**
-- One list: GPT-4o mini, GPT-5, Claude Sonnet 4/4.5, Claude Haiku 3.5/4.5, Gemini 2.5 Pro, Llama 4 Maverick. Source: [interviewing.io](https://interviewing.io/blog/how-to-use-ai-in-meta-s-ai-assisted-coding-interview-with-real-prompts-and-examples).
-- One candidate saw only lighter models: o4-mini, Claude Haiku, Llama 4 Maverick. Source: [LeetCode: [USA] Meta AI Coding Round](https://leetcode.com/discuss/post/7335102/usa-meta-ai-coding-round-by-mathrules-z3bd/) (snippet) `CR-25`.
-
-**How it is scored (as reported; Meta has not published this)**
-- dglearning's version has three dimensions: **problem solving**, **code development and understanding**, and **verification and debugging**.
-- intervue's version: decomposition, judgement, verification, communication, ownership.
-- Prepfully: the interviewer sees every prompt and every AI response, and you must be able to defend every line.
-- "Using the AI is optional." Every source says that in practice, *how well you steer it* is graded.
-
-**2026 changes (SWE pipeline)**
-- **Both onsite coding rounds.** From **16 Apr 2026**, SWE onsites reportedly have *both* coding rounds AI-enabled, with the first part usually AI-free.
-- **Phone screens.** Some phone screens have used AI-assisted coding since September 2026.
-- **Most-reported AI-round problems, May–Oct 2026:** Maze Solver; Card Game ("three cards summing to 15"); Maximum Unique Character Subset; Friend Recommendation.
-- Sources: [1point3acres 2026 Q4 trends, 4 Nov 2026](https://www.1point3acres.com/interview/guides/meta-interview-trend-2026q4) `AG` (partly paywalled).
-
-**Status for PE roles: unconfirmed.**
-- interviewing.io and intervue say the round is being rolled out to "back-end and ops-focused roles" in 2026.
-- 1point3acres says Production Engineering "use[s] a different round mix."
-- I found **no first-hand PE report** of an AI-enabled round. **Ask your recruiter** (see file 05).
-
-**PE-flavored drills**
-- Spend 10 minutes mapping an unfamiliar multi-file Python repo before you change anything: the entry point, how data flows, how tests run.
-- Practice tasks:
-  - Fix a log parser that has one failing test.
-  - Add retries, backoff and a rate limit to an API client.
-  - Add concurrency and timeouts to a host sweeper.
-  - Fix a bug in a config loader.
-- interviewing.io's *example prompts* (not confirmed interview tasks) are ops-flavored: grep for `ERROR` across `.log` files, a Bash deploy script, a Flask endpoint, a Dockerfile, Kubernetes YAML.
-- Ask the AI for one function or one test at a time. Read the diff, run the tests, and narrate what you're doing.
-
-**Follow-ups to expect in this round**
-1. The AI's change makes the test pass. How do you know it didn't break something the tests don't cover?
-2. Why did you accept that suggestion over the alternative? What is its complexity?
-3. We now need to support Y, which changes this function's signature. What else in the codebase has to change?
+- **Format.** One multi-file project in CoderPad with an AI chat panel and runnable tests, about 60 minutes. The phases are *fix a bug* (often no AI) → *implement the core* → *optimize or extend*.
+- **Scoring.** Problem solving · code development & understanding · verification & debugging · communication. Not finishing is OK; **pasting code you can't explain, or optimizing code that is still buggy, is not.**
+- **Reported problem pool:** maze solver (most frequent), maximize unique characters, the sum-to-15 card game, friend recommendations, plus a few rarer ones.
 
 ---
 
@@ -287,7 +238,146 @@ class TokenBucket:
 
 ---
 
-## F. Checking these threads yourself
+## F. Worked solutions (all tested on Python 3.13)
+
+### F1. Dino CSV (task A1)
+
+```python
+import csv
+import math
+import sys
+
+G = 9.8  # m/s^2
+
+
+def load_leg_lengths(path):
+    """NAME -> LEG_LENGTH from the first file; bad rows are counted, not fatal."""
+    legs, bad = {}, 0
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):               # header order doesn't matter
+            try:
+                legs[row["NAME"].strip()] = float(row["LEG_LENGTH"])
+            except (KeyError, ValueError, TypeError, AttributeError):
+                bad += 1
+    return legs, bad
+
+
+def fastest_bipeds(legs_path, strides_path):
+    legs, bad = load_leg_lengths(legs_path)         # small side: keep in memory
+    speeds = []
+    with open(strides_path, newline="") as f:
+        for row in csv.DictReader(f):               # big side: stream it
+            name = (row.get("NAME") or "").strip()
+            if (row.get("STANCE") or "").strip().lower() != "bipedal" or name not in legs:
+                continue
+            try:
+                stride = float(row["STRIDE_LENGTH"])
+            except (KeyError, ValueError, TypeError):
+                bad += 1
+                continue
+            leg = legs[name]
+            if leg <= 0:                            # avoid divide-by-zero / sqrt of negative
+                bad += 1
+                continue
+            speeds.append((((stride / leg) - 1) * math.sqrt(leg * G), name))
+    speeds.sort(key=lambda t: (-t[0], t[1]))        # fastest first; ties by name
+    return [name for _, name in speeds], bad
+
+
+if __name__ == "__main__":
+    names, bad = fastest_bipeds(sys.argv[1], sys.argv[2])
+    print("\n".join(names))
+    if bad:
+        print(f"skipped {bad} malformed rows", file=sys.stderr)
+```
+
+**The test data.** Illustrative data in the commonly circulated format, with one malformed row added: T-Rex (leg 2.5, stride 5.76), Velociraptor (1.0, 2.72), Struthiomimus (0.92, 1.34) and Hadrosaurus (1.2, 1.4) are bipedal. Deinonychus has a stride but no leg length, and `Broken` has stride `abc`.
+
+**Output:** `Tyrannosaurus Rex`, `Velociraptor`, `Struthiomimus`, `Hadrosaurus`, plus `skipped 1 malformed rows` on stderr.
+
+**What to say while coding**
+- "I'm joining on NAME. I'll load the leg lengths into a dict and stream the strides file."
+- "Malformed rows are counted and reported rather than crashing the run."
+- "Ties sort by name, so the output is deterministic."
+- "That's O(n + m) to read, plus O(k log k) to sort the k bipeds."
+
+**Answers to the A1 follow-ups**
+- **Both files are huge.** Hash-partition both files by `hash(NAME) % N` into N bucket files, then join bucket by bucket. Or sort both by NAME externally and merge-join.
+- **Only the top N is needed.** `heapq.nlargest(N, ...)` in O(k log N).
+- **The formula must be pluggable.** Pass it in as a function of a row dict, so the parser never changes.
+
+### F2. Goat Latin (LeetCode 824, from a 2025 PE screen)
+
+```python
+def to_goat_latin(sentence):
+    out = []
+    for i, word in enumerate(sentence.split(), start=1):
+        if word[0].lower() not in "aeiou":
+            word = word[1:] + word[0]
+        out.append(word + "ma" + "a" * i)
+    return " ".join(out)
+
+assert to_goat_latin("I speak Goat Latin") == "Imaa peaksmaaa oatGmaaaa atinLmaaaaa"
+```
+
+**Follow-ups.**
+- What's the complexity? (O(n + w²), where n is the input length and w the word count: the `"a" * i` suffixes add 1 + 2 + … + w characters.)
+- Uppercase vowels: is that handled? (Yes, through `.lower()`.)
+- Punctuation attached to words: what should happen to it?
+
+### F3. `tail -f` that survives rotation (the A2 follow-up)
+
+```python
+import os
+import time
+
+
+def follow(path, poll=0.5):
+    """Return an iterator of complete lines appended to `path` from now on.
+
+    Opens and seeks *now* (a generator body would only run on the first next()),
+    and survives log rotation (new inode) and in-place truncation.
+    """
+    f = open(path)
+    f.seek(0, os.SEEK_END)
+    return _lines(path, f, poll)
+
+
+def _lines(path, f, poll):
+    inode, buf = os.fstat(f.fileno()).st_ino, ""
+    while True:
+        chunk = f.readline()
+        if chunk:
+            buf += chunk
+            if buf.endswith("\n"):          # only emit whole lines
+                yield buf
+                buf = ""
+            continue
+        try:
+            st = os.stat(path)
+        except FileNotFoundError:           # mid-rotation: new file not created yet
+            time.sleep(poll)
+            continue
+        if st.st_ino != inode:              # rotated: old file is drained, switch to the new one
+            f.close()
+            f = open(path)
+            inode = os.fstat(f.fileno()).st_ino
+        elif st.st_size < f.tell():         # truncated in place (logrotate copytruncate)
+            f.seek(0)
+        else:
+            time.sleep(poll)
+```
+
+- **What the test covered:** an appended line, a line written in two parts, rotation by rename-and-recreate, and truncate-and-rewrite.
+- **A bug worth telling the interviewer about.** My first version put the `open` and `seek` *inside* the generator. A generator body doesn't run until the first `next()`, so lines written between calling `follow()` and the first `next()` were silently skipped and the test hung.
+- **Remaining gaps to discuss:**
+  - Lines written to the old file after we drained it but before the rename.
+  - Polling vs `inotify`.
+  - Truncation that lands back at exactly the same size.
+
+---
+
+## G. Checking these threads yourself
 
 - **Reddit** (I couldn't reach it). Search these in your browser:
   - `site:reddit.com/r/leetcode "production engineer" meta 2025`
